@@ -2,6 +2,7 @@ package com.example.googlemaptest2;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
@@ -16,6 +17,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CreateAccountActivity extends AppCompatActivity {
 
@@ -40,8 +43,14 @@ public class CreateAccountActivity extends AppCompatActivity {
         createBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                final GetData retrieveData = new GetData();
-                retrieveData.execute("");
+                if(isEmailValid(mailText.getText())){
+                    final GetData retrieveData = new GetData();
+                    retrieveData.execute("");
+                }else if (isAccountAndPasswordValid(accountText.getText().toString(), passwordText.getText().toString())){
+                    progressTextView.setText("The password or account name that you have entered is invalid");
+                }else{
+                    progressTextView.setText("Please enter a valid e-mail address");
+                }
             }
         });
 
@@ -53,10 +62,11 @@ public class CreateAccountActivity extends AppCompatActivity {
                 finish();
             }
         });
+
+
     }
 
     private class GetData extends AsyncTask<String, String, String> {
-
         String msg = "";
         int credentialsValid = 0;
 
@@ -87,20 +97,14 @@ public class CreateAccountActivity extends AppCompatActivity {
                 rs.next();
 
                 credentialsValid =  rs.getInt("EXISTS(SELECT * FROM accounts WHERE AccNames = '" + accountText.getText().toString() +"' OR AccMail = '" + mailText.getText().toString() + "')");
+               rs.close();
 
-                rs.close();
-
-                    /*String sqlCreate = "INSERT INTO `mhs_example`.`accounts` (`AccNames`, `AccPass`, `AccMail`) VALUES ('"+
+                    String sqlCreate = "INSERT INTO `mhs_example`.`accounts` (`AccNames`, `AccPass`, `AccMail`) VALUES ('"+
                             accountText.getText().toString() + "', '" +
                             passwordText.getText().toString() + "', '" +
-                            mailText.getText().toString() + "')";*/
+                            mailText.getText().toString() + "')";
+                    stmt.executeUpdate(sqlCreate);
 
-                    String sqlCreate = "INSERT INTO `mhs_example`.`accounts` (`AccNames`, `AccPass`, `AccMail`) VALUES ('r', 'r', 'r')";
-                    ResultSet rsCreate = stmt.executeQuery(sqlCreate);
-                    rsCreate.next();
-
-
-                rsCreate.close();
                 stmt.close();
                 conn.close();
 
@@ -139,7 +143,9 @@ public class CreateAccountActivity extends AppCompatActivity {
             progressTextView.setText(this.msg);
 
             if(credentialsValid == 0){
-                Intent startIntent = new Intent(getApplicationContext(), SQLActivity.class);
+                Intent startIntent = new Intent(getApplicationContext(), MainActivity.class);
+                startIntent.putExtra("EMAIL_ADDRESS", mailText.getText().toString());
+                startIntent.putExtra("ACCOUNT_CREATED", true);
                 startActivity(startIntent);
                 finish();
             }else{
@@ -149,4 +155,27 @@ public class CreateAccountActivity extends AppCompatActivity {
         }
 
     }
+
+    public static boolean isEmailValid(CharSequence email) {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+
+    public static boolean isAccountAndPasswordValid(String account, String password){
+        boolean isValid;
+
+        if(Pattern.matches("[a-zA-Z]+", account) && account.length() > 8 && account.length() < 25){
+            isValid = true;
+        }else{
+            isValid = false;
+        }
+
+        if(password.length() > 8 && password.length() < 25 && !password.contains(" ")){
+            isValid = true;
+        }else{
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
 }

@@ -43,6 +43,11 @@ public class MainActivity extends AppCompatActivity {
         CreateAccountButton = (Button) findViewById(R.id.CreateAccountText);
         progressTextView = (TextView) findViewById(R.id.progressTextView);
 
+        if(getIntent().getBooleanExtra("ACCOUNT_CREATED", false) == true){
+            String createdMailAddress = "";
+            createdMailAddress = (getIntent().getStringExtra("EMAIL_ADDRESS"));
+            AccountText.setText(createdMailAddress);
+        }
 
         CreateAccountButton.setOnClickListener(new View.OnClickListener() {
             @Override
