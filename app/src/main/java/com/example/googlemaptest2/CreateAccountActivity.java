@@ -144,7 +144,7 @@ public class CreateAccountActivity extends AppCompatActivity {
 
             if(credentialsValid == 0){
                 Intent startIntent = new Intent(getApplicationContext(), MainActivity.class);
-                startIntent.putExtra("EMAIL_ADDRESS", mailText.getText().toString());
+                startIntent.putExtra("ACCOUNT_NAME", accountText.getText().toString());
                 startIntent.putExtra("ACCOUNT_CREATED", true);
                 startActivity(startIntent);
                 finish();

@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
         if(getIntent().getBooleanExtra("ACCOUNT_CREATED", false) == true){
             String createdMailAddress = "";
-            createdMailAddress = (getIntent().getStringExtra("EMAIL_ADDRESS"));
+            createdMailAddress = (getIntent().getStringExtra("ACCOUNT_NAME"));
             AccountText.setText(createdMailAddress);
         }
 
@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 rs.next();
 
                 String passText = PasswordText.getText().toString();
-                String pass = rs.getString("AccNames");
+                String pass = rs.getString("AccPass");
 
                 if(passText.equals(pass)){
                     msg = "Login success!";
