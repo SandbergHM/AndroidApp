@@ -145,7 +145,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         uiSettings.setCompassEnabled(true);
         uiSettings.setZoomControlsEnabled(true);
 
-        Bundle b = new Bundle(getIntent().getExtras().getBundle("bundle"));
+        /*Bundle b = new Bundle(getIntent().getExtras().getBundle("bundle"));
         harborNames = new String[b.getInt("rows")];
         harborLats = new double[b.getInt("rows")];
         harborLangs = new double[b.getInt("rows")];
@@ -162,7 +162,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             harbors[i] = new LatLng(harborLats[i], (harborLangs[i]));
             markerOptions.position(harbors[i]);
             gmap.addMarker(new MarkerOptions().position(harbors[i]).title(harborNames[i]));
-        }
+        }*/
 
         //Zoom in on user location if possible, else zoom in on first harbor available
         fusedLocationClient.getLastLocation()

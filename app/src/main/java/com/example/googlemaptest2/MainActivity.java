@@ -1,6 +1,7 @@
 package com.example.googlemaptest2;
+import java.net.*;
+import java.io.*;
 
-import android.accounts.Account;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -11,6 +12,12 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -19,34 +26,30 @@ import java.sql.Statement;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.security.DigestException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
 public class MainActivity extends AppCompatActivity {
     EditText AccountText;
     EditText PasswordText;
     Button LoginButton;
     Button CreateAccountButton;
     TextView progressTextView;
+    Button socketButton;
 
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account);
 
-        Resources res = getResources();
+        AccountText = findViewById(R.id.AccountText);
+        PasswordText = findViewById(R.id.PasswordText);
+        LoginButton = findViewById(R.id.LoginButton);
+        CreateAccountButton = findViewById(R.id.CreateAccountText);
+        progressTextView = findViewById(R.id.progressTextView);
+        socketButton = findViewById(R.id.socketButton);
 
-        AccountText = (EditText) findViewById(R.id.AccountText);
-        PasswordText = (EditText) findViewById(R.id.PasswordText);
-        LoginButton = (Button) findViewById(R.id.LoginButton);
-        CreateAccountButton = (Button) findViewById(R.id.CreateAccountText);
-        progressTextView = (TextView) findViewById(R.id.progressTextView);
-
-        if(getIntent().getBooleanExtra("ACCOUNT_CREATED", false) == true){
-            String createdMailAddress = "";
-            createdMailAddress = (getIntent().getStringExtra("ACCOUNT_NAME"));
-            AccountText.setText(createdMailAddress);
+        if (getIntent().getBooleanExtra("ACCOUNT_CREATED", false) == true) {
+            String createdUser = "";
+            createdUser = (getIntent().getStringExtra("ACCOUNT_NAME"));
+            AccountText.setText(createdUser);
         }
 
         CreateAccountButton.setOnClickListener(new View.OnClickListener() {
@@ -62,107 +65,72 @@ public class MainActivity extends AppCompatActivity {
             @Override
 
             public void onClick(View view) {
-                String noTxt = "";
-                if(AccountText.getText().toString().equals(noTxt) || PasswordText.getText().toString().equals(noTxt)){
-                    progressTextView.setText("Please enter proper login credentials");
-                }else {
-                    final GetData retrieveData = new GetData();
-                    retrieveData.execute("");
-                }
+                progressTextView.setText("Logging in...");
+                final Login checkCredentials = new Login();
+                checkCredentials.execute("");
             }
         });
-
     }
 
-    private class GetData extends AsyncTask<String, String, String> {
-
+    private class Login extends AsyncTask<String, String, String> {
         String msg = "";
-        Boolean loginSuccess = false;
-
-        static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";
-
-        static final String DB_URL = "jdbc:mysql://" + DbStrings.DATABASE_URL + "/" +
-                DbStrings.DATABASE_NAME;
-
-        protected void onPreExecute(){
-            progressTextView.setText("Loading...");
-        }
+        String loginStatus = "";
 
         @SuppressLint("WrongThread")
         @Override
         protected String doInBackground(String... strings) {
-
-            Connection conn = null;
-            Statement stmt = null;
+            byte[] ipAddr = new byte[]{(byte) 188, (byte) 148, (byte) 116, (byte) 178};
+            String initialString = "";
+            InetAddress hostname = null;
 
             try {
-                Class.forName(JDBC_DRIVER);
-                conn = DriverManager.getConnection(DB_URL, DbStrings.USERNAME, DbStrings.PASSWORD);
-
-                stmt = conn.createStatement();
-
-                String sql = "SELECT * FROM accounts WHERE AccNames = '" + AccountText.getText().toString() +"'";
-                ResultSet rs = stmt.executeQuery(sql);
-                rs.next();
-
-                String passText = PasswordText.getText().toString();
-                String pass = rs.getString("AccPass");
-
-                if(passText.equals(pass)){
-                    msg = "Login success!";
-                    loginSuccess = true;
-
-                }else{
-                    msg = pass;
-                    loginSuccess = false;
-                }
-
-                rs.close();
-                stmt.close();
-                conn.close();
-
-            } catch (SQLException connError){
-                msg = String.valueOf(connError.getErrorCode());
-
-                connError.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                msg = "A Class not found exception was thrown.";
+                hostname = Inet4Address.getByAddress(ipAddr);
+            } catch (UnknownHostException e) {
                 e.printStackTrace();
-
-            } finally{
-                try{
-                    if(stmt != null){
-                        stmt.close();
-                    }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-                try{
-                    if(conn != null){
-                        conn.close();
-                    }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-
             }
 
+            try (Socket socket = new Socket(hostname, 3306)) {
+                while (true) {
+                    InputStream input = socket.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+
+                    OutputStream output = socket.getOutputStream();
+                    PrintWriter printer = new PrintWriter(output, true);
+
+                    printer.println("Login");
+                    printer.println(AccountText.getText().toString());
+                    printer.println(PasswordText.getText().toString());
+
+                    initialString = reader.readLine();
+
+                    if (initialString != "") {
+                        loginStatus = initialString;
+                        socket.close();
+                    }
+                }
+            } catch (UnknownHostException ex) {
+
+                System.out.println("Server not found: " + ex.getMessage());
+
+            } catch (IOException ex) {
+
+                System.out.println("I/O error: " + ex.getMessage());
+            }
             return null;
         }
 
         @Override
-        protected void onPostExecute(String msg){
-
-            progressTextView.setText(this.msg);
-
-            if(loginSuccess){
-                Intent startIntent = new Intent(getApplicationContext(), SQLActivity.class);
+        protected void onPostExecute(String s) {
+            if (loginStatus.equals("Success")) {
+                progressTextView.setText("Login successful");
+                Intent startIntent = new Intent(getApplicationContext(), MapActivity.class);
                 startActivity(startIntent);
                 finish();
+            } else if (loginStatus.equals("Failed")) {
+                progressTextView.setText("Incorrect login credentials");
             }
 
+
         }
-
     }
-
 }

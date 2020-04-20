@@ -12,6 +12,16 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -44,8 +54,8 @@ public class CreateAccountActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if(isEmailValid(mailText.getText())){
-                    final GetData retrieveData = new GetData();
-                    retrieveData.execute("");
+                    final CreateAccount createAccount = new CreateAccount();
+                    createAccount.execute("");
                 }else if (isAccountAndPasswordValid(accountText.getText().toString(), passwordText.getText().toString())){
                     progressTextView.setText("The password or account name that you have entered is invalid");
                 }else{
@@ -66,94 +76,67 @@ public class CreateAccountActivity extends AppCompatActivity {
 
     }
 
-    private class GetData extends AsyncTask<String, String, String> {
-        String msg = "";
-        int credentialsValid = 0;
-
-        static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";
-
-        static final String DB_URL = "jdbc:mysql://" + DbStrings.DATABASE_URL + "/" +
-                DbStrings.DATABASE_NAME;
-
-        protected void onPreExecute(){
-            progressTextView.setText("Loading...");
-        }
+    private class CreateAccount extends AsyncTask<String, String, String> {
+        String createStatus = "";
 
         @SuppressLint("WrongThread")
         @Override
         protected String doInBackground(String... strings) {
+            byte[] ipAddr = new byte[]{(byte) 188, (byte) 148, (byte) 116, (byte) 178};
+            String initialString = "";
+            InetAddress hostname = null;
 
-            Connection conn = null;
-            Statement stmt = null;
 
             try {
-                Class.forName(JDBC_DRIVER);
-                conn = DriverManager.getConnection(DB_URL, DbStrings.USERNAME, DbStrings.PASSWORD);
-
-                stmt = conn.createStatement();
-
-                String sql = "SELECT EXISTS(SELECT * FROM accounts WHERE AccNames = '" + accountText.getText().toString() +"' OR AccMail = '" + mailText.getText().toString() + "')";
-                ResultSet rs = stmt.executeQuery(sql);
-                rs.next();
-
-                credentialsValid =  rs.getInt("EXISTS(SELECT * FROM accounts WHERE AccNames = '" + accountText.getText().toString() +"' OR AccMail = '" + mailText.getText().toString() + "')");
-               rs.close();
-
-                    String sqlCreate = "INSERT INTO `mhs_example`.`accounts` (`AccNames`, `AccPass`, `AccMail`) VALUES ('"+
-                            accountText.getText().toString() + "', '" +
-                            passwordText.getText().toString() + "', '" +
-                            mailText.getText().toString() + "')";
-                    stmt.executeUpdate(sqlCreate);
-
-                stmt.close();
-                conn.close();
-
-            } catch (SQLException connError){
-                msg = String.valueOf(connError.getErrorCode());
-
-                connError.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                msg = "A Class not found exception was thrown.";
+                hostname = Inet4Address.getByAddress(ipAddr);
+            } catch (UnknownHostException e) {
                 e.printStackTrace();
-
-            } finally{
-                try{
-                    if(stmt != null){
-                        stmt.close();
-                    }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-                try{
-                    if(conn != null){
-                        conn.close();
-                    }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-
             }
 
+            try (Socket socket = new Socket(hostname, 3306)) {
+                while (true) {
+                    InputStream input = socket.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+
+                    OutputStream output = socket.getOutputStream();
+                    PrintWriter printer = new PrintWriter(output, true);
+
+                    printer.println("CreateAccount");
+                    printer.println(accountText.getText().toString());
+                    printer.println(passwordText.getText().toString());
+                    printer.println(mailText.getText().toString());
+
+                    initialString = reader.readLine();
+
+                    if (initialString != "") {
+                        createStatus = initialString;
+                        socket.close();
+                    }
+                }
+            } catch (UnknownHostException ex) {
+
+                System.out.println("Server not found: " + ex.getMessage());
+
+            } catch (IOException ex) {
+
+                System.out.println("I/O error: " + ex.getMessage());
+            }
             return null;
         }
 
         @Override
-        protected void onPostExecute(String msg){
-
-            progressTextView.setText(this.msg);
-
-            if(credentialsValid == 0){
+        protected void onPostExecute(String s) {
+            if(createStatus.equals("Success")){
                 Intent startIntent = new Intent(getApplicationContext(), MainActivity.class);
-                startIntent.putExtra("ACCOUNT_NAME", accountText.getText().toString());
                 startIntent.putExtra("ACCOUNT_CREATED", true);
+                startIntent.putExtra("ACCOUNT_NAME", accountText.getText().toString());
                 startActivity(startIntent);
                 finish();
             }else{
-                progressTextView.setText("Account name or E-mail already in use");
+                progressTextView.setText("Failed to create account");
             }
-
+            super.onPostExecute(s);
         }
-
     }
 
     public static boolean isEmailValid(CharSequence email) {
